@@ -253,3 +253,76 @@ volumes:
 ```shell
 docker-compose up --build
 ```
+
+> Наварное дней пять потратил для того что бы найти решение проблемы горячей перезагрузки. Вся проблема заключалась в том что при изменении файла, данные изменения не попадали в контейнер. Решением данной проблемы оказалось в **service** **frontend** в файле **docker-compose.yml**, нужно было добавить переменную окружения
+
+```yml
+environment:
+  - CHOKIDAR_USEPOLLING=true
+```
+
+Читай здесь [https://mherman.org/blog/dockerizing-a-react-app/](https://mherman.org/blog/dockerizing-a-react-app/).
+
+Полный рабочий фал **docker-compose.yml**
+
+```yml
+version: '3'
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: realworld-docker-frontend
+    command: npm run start
+    ports:
+      - '3000:3000'
+    restart: unless-stopped
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./frontend/src:/usr/src/app/src
+      - ./frontend/public:/usr/src/app/public
+
+  api:
+    build: ./api
+    container_name: realworld-docker-api
+    command: npm run start
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      - PORT=3001
+      - HOST=http://realworld.com
+      - MONGO_URL=mongodb://api_db:27017/api
+    depends_on:
+      - api_db
+
+  auth:
+    build: ./auth
+    container_name: realworld-docker-auth
+    command: npm run start
+    restart: unless-stopped
+    ports:
+      - '3002:3002'
+    environment:
+      - PORT=3002
+      - HOST=http://realworld.com
+      - MONGO_URL=mongodb://auth_db:27017/auth
+
+  api_db:
+    image: mongo:latest
+    container_name: realworld-docker-api-db
+    volumes:
+      - mongodb_api:/data/db
+
+  auth_db:
+    image: mongo:latest
+    container_name: realworld-docker-auth-db
+    volumes:
+      - mongodb_auth:/data/db
+
+volumes:
+  mongodb_api:
+  mongodb_auth:
+```
