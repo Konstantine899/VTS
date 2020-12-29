@@ -108,3 +108,69 @@ server{
 и вношу **127.0.0.1 realworld-docker.com**. Теперь при обращении в адресной строке к **realworld-docker.com** происходит обращение к локальной машине и отображение страницы.
 
 ![](img/082.png)
+
+Теперь я могу в docker-compose.yml в сервисе frontend убрать ports т.к. это все делается теперь через nginx
+
+```yml
+version: '3'
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: realworld-docker-frontend
+    command: serve -s build -l 3000
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    container_name: realworld-docker-api
+    command: npm run start
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      - PORT=3001
+      - HOST=http://realworld.com
+      - MONGO_URL=mongodb://api_db:27017/api
+      - AUTH_API_URL=http://auth:3002/api
+    depends_on:
+      - api_db
+
+  auth:
+    build: ./auth
+    container_name: realworld-docker-auth
+    command: npm run start
+    restart: unless-stopped
+    ports:
+      - '3002:3002'
+    environment:
+      - PORT=3002
+      - HOST=http://realworld.com
+      - MONGO_URL=mongodb://auth_db:27017/auth
+
+  api_db:
+    image: mongo:latest
+    container_name: realworld-docker-api-db
+    volumes:
+      - mongodb_api:/data/db
+
+  auth_db:
+    image: mongo:latest
+    container_name: realworld-docker-auth-db
+    volumes:
+      - mongodb_auth:/data/db
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: realworld-docker-nginx
+    ports:
+      - '80:80'
+    volumes:
+      - ./nginx/nginx.conf.prod:/etc/nginx/conf.d/nginx.conf
+    depends_on:
+      - frontend
+
+volumes:
+  mongodb_api:
+  mongodb_auth:
+```
